@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Search, Filter, MapPin, Building2, GraduationCap, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { NewDashboardExportButtons } from '@/components/NewDashboardExportButtons';
 
 interface AlumniProfile {
   name: string;
@@ -181,48 +181,59 @@ export default function NewDashboard() {
 
       {/* Search and Filters */}
       <Card className="p-6 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-              <Input
-                placeholder="Search by name or job title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                <Input
+                  placeholder="Search by name or job title..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select
+                value={filters.company}
+                onValueChange={(value) => setFilters(prev => ({ ...prev, company: value }))}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  {companies.map((company) => (
+                    <SelectItem key={company} value={company}>{company}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={filters.industry}
+                onValueChange={(value) => setFilters(prev => ({ ...prev, industry: value }))}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Industries</SelectItem>
+                  {industries.map((industry) => (
+                    <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Select
-              value={filters.company}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, company: value }))}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by company" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Companies</SelectItem>
-                {companies.map((company) => (
-                  <SelectItem key={company} value={company}>{company}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={filters.industry}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, industry: value }))}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Filter by industry" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Industries</SelectItem>
-                {industries.map((industry) => (
-                  <SelectItem key={industry} value={industry}>{industry}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          
+          {/* Export Buttons */}
+          <div className="flex justify-end pt-4 border-t border-slate-200">
+            <NewDashboardExportButtons 
+              data={filteredAlumni} 
+              searchQuery={searchQuery}
+              filters={filters}
+            />
           </div>
         </div>
       </Card>
@@ -344,4 +355,4 @@ export default function NewDashboard() {
       </div>
     </div>
   );
-} 
+}
