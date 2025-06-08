@@ -17,6 +17,24 @@ export const AlumniProfile = ({ alumni, onBack, onRefresh }: AlumniProfileProps)
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Helper functions to safely handle JSON data
+  const getExperienceArray = () => {
+    if (Array.isArray(alumni.experience)) {
+      return alumni.experience as any[];
+    }
+    return [];
+  };
+
+  const getEducationArray = () => {
+    if (Array.isArray(alumni.education)) {
+      return alumni.education as any[];
+    }
+    return [];
+  };
+
+  const experienceArray = getExperienceArray();
+  const educationArray = getEducationArray();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -84,9 +102,9 @@ export const AlumniProfile = ({ alumni, onBack, onRefresh }: AlumniProfileProps)
       {/* Experience */}
       <Card className="p-6">
         <h2 className="text-xl font-semibold text-slate-900 mb-6">Professional Experience</h2>
-        {alumni.experience && alumni.experience.length > 0 ? (
+        {experienceArray.length > 0 ? (
           <div className="space-y-6">
-            {alumni.experience.map((exp: any, index: number) => (
+            {experienceArray.map((exp: any, index: number) => (
               <div key={index} className="relative">
                 {index > 0 && <Separator className="mb-6" />}
                 <div className="flex items-start space-x-4">
@@ -128,9 +146,9 @@ export const AlumniProfile = ({ alumni, onBack, onRefresh }: AlumniProfileProps)
       {/* Education */}
       <Card className="p-6">
         <h2 className="text-xl font-semibold text-slate-900 mb-6">Education</h2>
-        {alumni.education && alumni.education.length > 0 ? (
+        {educationArray.length > 0 ? (
           <div className="space-y-4">
-            {alumni.education.map((edu: any, index: number) => (
+            {educationArray.map((edu: any, index: number) => (
               <div key={index} className="flex items-start space-x-4">
                 <div className="flex-shrink-0">
                   <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">

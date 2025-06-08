@@ -119,6 +119,82 @@ export class ProductionScraper {
     }
   }
 
+  async getScrapingJob(jobId: string): Promise<ScrapingJob> {
+    try {
+      console.log(`[ProductionScraper] Fetching scraping job:`, { jobId });
+
+      const { data: job, error } = await supabase
+        .from('scraping_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+      if (error) {
+        console.error(`[ProductionScraper] Error fetching scraping job:`, {
+          error,
+          jobId
+        });
+        throw error;
+      }
+
+      console.log(`[ProductionScraper] Scraping job:`, {
+        jobId,
+        status: job.status,
+        processed: job.processed_profiles,
+        total: job.total_profiles
+      });
+
+      return job;
+
+    } catch (error) {
+      console.error(`[ProductionScraper] Error in getScrapingJob:`, {
+        error: error.message,
+        stack: error.stack,
+        jobId
+      });
+      throw error;
+    }
+  }
+
+  subscribeToJobProgress(jobId: string, callback: (job: ScrapingJob) => void) {
+    try {
+      console.log(`[ProductionScraper] Subscribing to job progress:`, { jobId });
+
+      const channel = supabase
+        .channel(`job-progress-${jobId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'scraping_jobs',
+            filter: `id=eq.${jobId}`
+          },
+          (payload) => {
+            console.log(`[ProductionScraper] Job progress update:`, {
+              jobId,
+              newStatus: payload.new.status,
+              processed: payload.new.processed_profiles,
+              total: payload.new.total_profiles
+            });
+
+            callback(payload.new as ScrapingJob);
+          }
+        )
+        .subscribe();
+
+      return channel;
+
+    } catch (error) {
+      console.error(`[ProductionScraper] Error in subscribeToJobProgress:`, {
+        error: error.message,
+        stack: error.stack,
+        jobId
+      });
+      throw error;
+    }
+  }
+
   subscribeToJobUpdates(
     jobId: string,
     onProgress: (progress: { processed: number; total: number; status: string }) => void,
