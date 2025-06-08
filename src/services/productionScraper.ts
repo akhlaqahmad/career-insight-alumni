@@ -1,7 +1,8 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
-type ScrapingJob = Database['public']['Tables']['scraping_jobs']['Row'];
+export type ScrapingJob = Database['public']['Tables']['scraping_jobs']['Row'];
 type ScrapingQueueItem = Database['public']['Tables']['scraping_queue']['Row'];
 export type AlumniProfile = Database['public']['Tables']['alumni_profiles']['Row'];
 
