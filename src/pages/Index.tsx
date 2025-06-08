@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,17 +11,18 @@ import { AlumniProfile } from '@/components/AlumniProfile';
 import { ExportButtons } from '@/components/ExportButtons';
 import { FilterControls } from '@/components/FilterControls';
 import { ProgressIndicator } from '@/components/ProgressIndicator';
-import { AlumniData } from '@/types/alumni';
-import { mockAlumniData } from '@/data/mockData';
 import { parseCSV } from '@/utils/csvParser';
-import { batchScrapeProfiles } from '@/services/mockScraper';
+import { productionScraper } from '@/services/productionScraper';
+import { useAlumniProfiles } from '@/hooks/useAlumniProfiles';
+import { useScrapingJob } from '@/hooks/useScrapingJob';
+import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
-  const [alumniData, setAlumniData] = useState<AlumniData[]>(mockAlumniData);
-  const [filteredData, setFilteredData] = useState<AlumniData[]>(mockAlumniData);
-  const [selectedAlumni, setSelectedAlumni] = useState<AlumniData | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
+  const { profiles, loading, searchProfiles } = useAlumniProfiles();
+  const [filteredData, setFilteredData] = useState(profiles);
+  const [selectedAlumni, setSelectedAlumni] = useState(null);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const { job: currentJob } = useScrapingJob(currentJobId);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     company: 'all',
@@ -28,42 +30,49 @@ const Index = () => {
     location: 'all'
   });
 
+  // Update filtered data when profiles change
+  useState(() => {
+    setFilteredData(profiles);
+  }, [profiles]);
+
   const handleFileUpload = async (file: File) => {
     try {
-      setIsProcessing(true);
-      setProcessingProgress({ current: 0, total: 0 });
+      console.log('Starting real scraping job for:', file.name);
       
-      console.log('Parsing CSV file:', file.name);
       const csvRows = await parseCSV(file);
       console.log('Parsed CSV rows:', csvRows.length);
       
-      setProcessingProgress({ current: 0, total: csvRows.length });
+      // Create scraping job in database
+      const jobId = await productionScraper.createScrapingJob(file.name, csvRows);
+      setCurrentJobId(jobId);
       
-      const scrapedProfiles = await batchScrapeProfiles(
-        csvRows,
-        (current, total, profile) => {
-          setProcessingProgress({ current, total });
-          if (profile) {
-            console.log(`Scraped profile ${current}/${total}:`, profile.name);
-          }
-        }
-      );
+      // Start the scraping process
+      await productionScraper.startScrapingJob(jobId);
       
-      console.log('Scraping completed. Total profiles:', scrapedProfiles.length);
-      setAlumniData(scrapedProfiles);
-      setFilteredData(scrapedProfiles);
+      toast({
+        title: "Scraping Job Started",
+        description: `Processing ${csvRows.length} LinkedIn profiles. This may take several minutes.`,
+      });
       
     } catch (error) {
-      console.error('Error processing CSV:', error);
-    } finally {
-      setIsProcessing(false);
-      setProcessingProgress({ current: 0, total: 0 });
+      console.error('Error starting scraping job:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start scraping job. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleSearch = (term: string) => {
+  const handleSearch = async (term: string) => {
     setSearchTerm(term);
-    applyFilters(term, filters);
+    if (term.trim()) {
+      await searchProfiles(term);
+    } else {
+      // Reset to all profiles
+      const allProfiles = await productionScraper.getAlumniProfiles();
+      setFilteredData(allProfiles);
+    }
   };
 
   const handleFilterChange = (newFilters: typeof filters) => {
@@ -72,31 +81,31 @@ const Index = () => {
   };
 
   const applyFilters = (search: string, filterObj: typeof filters) => {
-    let filtered = alumniData;
+    let filtered = profiles;
 
     if (search) {
       filtered = filtered.filter(alumni =>
         alumni.name.toLowerCase().includes(search.toLowerCase()) ||
-        alumni.currentCompany.toLowerCase().includes(search.toLowerCase()) ||
-        alumni.currentTitle.toLowerCase().includes(search.toLowerCase())
+        alumni.current_company?.toLowerCase().includes(search.toLowerCase()) ||
+        alumni.current_title?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
     if (filterObj.company !== 'all') {
       filtered = filtered.filter(alumni =>
-        alumni.currentCompany.toLowerCase().includes(filterObj.company.toLowerCase())
+        alumni.current_company?.toLowerCase().includes(filterObj.company.toLowerCase())
       );
     }
 
     if (filterObj.industry !== 'all') {
       filtered = filtered.filter(alumni =>
-        alumni.industry.toLowerCase().includes(filterObj.industry.toLowerCase())
+        alumni.industry?.toLowerCase().includes(filterObj.industry.toLowerCase())
       );
     }
 
     if (filterObj.location !== 'all') {
       filtered = filtered.filter(alumni =>
-        alumni.location.toLowerCase().includes(filterObj.location.toLowerCase())
+        alumni.location?.toLowerCase().includes(filterObj.location.toLowerCase())
       );
     }
 
@@ -104,12 +113,17 @@ const Index = () => {
   };
 
   const handleRefreshProfile = async (id: string) => {
-    setIsProcessing(true);
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsProcessing(false);
-    console.log('Refreshing profile:', id);
+    toast({
+      title: "Feature Coming Soon",
+      description: "Profile refresh functionality will be available in the next update.",
+    });
   };
+
+  const isProcessing = currentJob && currentJob.status === 'processing';
+  const processingProgress = currentJob ? {
+    current: currentJob.processed_profiles,
+    total: currentJob.total_profiles
+  } : { current: 0, total: 0 };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -119,7 +133,7 @@ const Index = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-slate-900">ASB Alumni Career Tracker</h1>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-800">Demo Mode</Badge>
+              <Badge variant="secondary" className="bg-green-100 text-green-800">Production Ready</Badge>
             </div>
             <div className="flex items-center space-x-4">
               <FileUpload onFileUpload={handleFileUpload} />
@@ -147,6 +161,33 @@ const Index = () => {
           />
         ) : (
           <div className="space-y-6">
+            {/* Current Job Status */}
+            {currentJob && (
+              <Card className="p-6 bg-blue-50 border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-blue-900">
+                      Scraping Job: {currentJob.filename}
+                    </h3>
+                    <p className="text-blue-700">
+                      Status: {currentJob.status} | 
+                      Progress: {currentJob.processed_profiles}/{currentJob.total_profiles} | 
+                      Success: {currentJob.successful_profiles} | 
+                      Failed: {currentJob.failed_profiles}
+                    </p>
+                  </div>
+                  <Badge className={
+                    currentJob.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    currentJob.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                    currentJob.status === 'failed' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }>
+                    {currentJob.status.toUpperCase()}
+                  </Badge>
+                </div>
+              </Card>
+            )}
+
             {/* Search and Filters */}
             <Card className="p-6">
               <div className="flex flex-col lg:flex-row gap-4">
@@ -164,7 +205,7 @@ const Index = () => {
                 <FilterControls 
                   filters={filters}
                   onFilterChange={handleFilterChange}
-                  alumniData={alumniData}
+                  alumniData={profiles}
                 />
               </div>
             </Card>
@@ -180,7 +221,7 @@ const Index = () => {
               <Card className="p-6">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-green-600">
-                    {new Set(filteredData.map(a => a.currentCompany)).size}
+                    {new Set(filteredData.map(a => a.current_company).filter(Boolean)).size}
                   </div>
                   <div className="text-sm text-slate-600">Companies</div>
                 </div>
@@ -188,7 +229,7 @@ const Index = () => {
               <Card className="p-6">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-purple-600">
-                    {new Set(filteredData.map(a => a.industry)).size}
+                    {new Set(filteredData.map(a => a.industry).filter(Boolean)).size}
                   </div>
                   <div className="text-sm text-slate-600">Industries</div>
                 </div>
@@ -196,7 +237,7 @@ const Index = () => {
               <Card className="p-6">
                 <div className="text-center">
                   <div className="text-3xl font-bold text-orange-600">
-                    {new Set(filteredData.map(a => a.location)).size}
+                    {new Set(filteredData.map(a => a.location).filter(Boolean)).size}
                   </div>
                   <div className="text-sm text-slate-600">Locations</div>
                 </div>

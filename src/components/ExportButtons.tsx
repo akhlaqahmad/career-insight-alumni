@@ -1,11 +1,11 @@
 
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { AlumniData } from '@/types/alumni';
+import { AlumniProfile } from '@/services/productionScraper';
 import { toast } from '@/hooks/use-toast';
 
 interface ExportButtonsProps {
-  data: AlumniData[];
+  data: AlumniProfile[];
 }
 
 export const ExportButtons = ({ data }: ExportButtonsProps) => {
@@ -18,20 +18,22 @@ export const ExportButtons = ({ data }: ExportButtonsProps) => {
       'Location',
       'LinkedIn URL',
       'AI Summary',
-      'Last Updated'
+      'Skills',
+      'Scraped At'
     ];
 
     const csvContent = [
       headers.join(','),
       ...data.map(alumni => [
         `"${alumni.name}"`,
-        `"${alumni.currentTitle}"`,
-        `"${alumni.currentCompany}"`,
-        `"${alumni.industry}"`,
-        `"${alumni.location}"`,
-        `"${alumni.linkedinUrl}"`,
-        `"${alumni.aiSummary}"`,
-        `"${alumni.lastUpdated}"`
+        `"${alumni.current_title || ''}"`,
+        `"${alumni.current_company || ''}"`,
+        `"${alumni.industry || ''}"`,
+        `"${alumni.location || ''}"`,
+        `"${alumni.linkedin_url}"`,
+        `"${alumni.ai_summary || ''}"`,
+        `"${alumni.skills?.join('; ') || ''}"`,
+        `"${alumni.scraped_at}"`
       ].join(','))
     ].join('\n');
 
