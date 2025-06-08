@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -7,6 +6,10 @@ type ScrapingQueueItem = Database['public']['Tables']['scraping_queue']['Row'];
 export type AlumniProfile = Database['public']['Tables']['alumni_profiles']['Row'];
 
 type CSVRow = { name: string; linkedin_url: string; [key: string]: string };
+
+// Hardcoded Supabase configuration
+const SUPABASE_URL = "https://zwijoxdlxrprtetpvwqt.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp3aWpveGRseHJwcnRldHB2d3F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzNjAzODgsImV4cCI6MjA2NDkzNjM4OH0.dbX06EfZPnSnY1VMqghzMDTTttcouQWSCGnekrn5xak";
 
 export class ProductionScraper {
   private static instance: ProductionScraper;
@@ -84,11 +87,11 @@ export class ProductionScraper {
 
       console.log(`[ProductionScraper] Queue items created successfully`);
 
-      // Start job processor
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-processor`, {
+      // Start job processor with correct URL
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/job-processor`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ jobId: job.id })
