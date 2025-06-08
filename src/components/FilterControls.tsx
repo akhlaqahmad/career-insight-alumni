@@ -19,10 +19,10 @@ export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterCo
   const industries = [...new Set(alumniData.map(a => a.industry))].sort();
   const locations = [...new Set(alumniData.map(a => a.location))].sort();
 
-  const hasActiveFilters = filters.company || filters.industry || filters.location;
+  const hasActiveFilters = filters.company !== 'all' || filters.industry !== 'all' || filters.location !== 'all';
 
   const clearFilters = () => {
-    onFilterChange({ company: '', industry: '', location: '' });
+    onFilterChange({ company: 'all', industry: 'all', location: 'all' });
   };
 
   return (
@@ -35,7 +35,7 @@ export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterCo
           <SelectValue placeholder="Filter by company" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Companies</SelectItem>
+          <SelectItem value="all">All Companies</SelectItem>
           {companies.map(company => (
             <SelectItem key={company} value={company}>{company}</SelectItem>
           ))}
@@ -50,7 +50,7 @@ export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterCo
           <SelectValue placeholder="Filter by industry" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Industries</SelectItem>
+          <SelectItem value="all">All Industries</SelectItem>
           {industries.map(industry => (
             <SelectItem key={industry} value={industry}>{industry}</SelectItem>
           ))}
@@ -65,7 +65,7 @@ export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterCo
           <SelectValue placeholder="Filter by location" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Locations</SelectItem>
+          <SelectItem value="all">All Locations</SelectItem>
           {locations.map(location => (
             <SelectItem key={location} value={location}>{location}</SelectItem>
           ))}

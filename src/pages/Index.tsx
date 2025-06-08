@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,9 +20,9 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    company: '',
-    industry: '',
-    location: ''
+    company: 'all',
+    industry: 'all',
+    location: 'all'
   });
 
   const handleFileUpload = async (file: File) => {
@@ -56,19 +55,19 @@ const Index = () => {
       );
     }
 
-    if (filterObj.company) {
+    if (filterObj.company !== 'all') {
       filtered = filtered.filter(alumni =>
         alumni.currentCompany.toLowerCase().includes(filterObj.company.toLowerCase())
       );
     }
 
-    if (filterObj.industry) {
+    if (filterObj.industry !== 'all') {
       filtered = filtered.filter(alumni =>
         alumni.industry.toLowerCase().includes(filterObj.industry.toLowerCase())
       );
     }
 
-    if (filterObj.location) {
+    if (filterObj.location !== 'all') {
       filtered = filtered.filter(alumni =>
         alumni.location.toLowerCase().includes(filterObj.location.toLowerCase())
       );
