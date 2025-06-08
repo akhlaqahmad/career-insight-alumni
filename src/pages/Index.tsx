@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -309,16 +310,16 @@ export default function Index() {
               <Badge variant="secondary" className="bg-green-100 text-green-800">Production Ready</Badge>
               <nav className="ml-8 flex space-x-4">
                 <Link 
+                  to="/old-dashboard" 
+                  className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Old Dashboard
+                </Link>
+                <Link 
                   to="/" 
                   className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium"
                 >
-                  Dashboard
-                </Link>
-                <Link 
-                  to="/new-dashboard" 
-                  className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  New Dashboard
+                  Alumni Network
                 </Link>
               </nav>
             </div>

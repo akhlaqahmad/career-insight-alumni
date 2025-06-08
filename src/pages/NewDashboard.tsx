@@ -338,8 +338,8 @@ export default function NewDashboard() {
           <p className="text-slate-600 mt-1">Connect with fellow alumni and explore career opportunities</p>
         </div>
         <nav className="flex items-center space-x-4">
-          <Link to="/" className="text-slate-600 hover:text-slate-900">Main Dashboard</Link>
-          <Link to="/new-dashboard" className="text-blue-600 font-medium">New Version</Link>
+          <Link to="/" className="text-blue-600 font-medium">Alumni Network</Link>
+          <Link to="/old-dashboard" className="text-slate-600 hover:text-slate-900">Old Dashboard</Link>
         </nav>
       </div>
 
