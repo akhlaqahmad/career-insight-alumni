@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,21 @@ export default function NewDashboard() {
     location: 'all'
   });
 
+  // Function to construct LinkedIn image URL from CSV path
+  const constructLinkedInImageUrl = (imagePath: string) => {
+    if (!imagePath) return '';
+    
+    // Extract the numeric ID from the path (e.g., "1705634904192" from "Asia School of Business_ People _ LinkedIn_files/1705634904192")
+    const match = imagePath.match(/(\d{13})/); // LinkedIn IDs are typically 13 digits
+    if (match) {
+      const id = match[1];
+      // Construct LinkedIn image URL - this is the basic format, may need adjustment
+      return `https://media.licdn.com/dms/image/v2/D5603AQF${id}/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/${id}?e=1755129600&v=beta&t=placeholder`;
+    }
+    
+    return '';
+  };
+
   useEffect(() => {
     const loadAlumniData = async () => {
       try {
@@ -39,12 +55,16 @@ export default function NewDashboard() {
         }
         const csv = await response.text();
         
+        console.log('CSV content loaded, first 500 chars:', csv.substring(0, 500));
+        
         // Parse CSV with error handling
         try {
           const rows = csv.split('\n').slice(1); // Skip header
+          console.log('Total rows to process:', rows.length);
+          
           const profiles = rows
             .filter(row => row.trim()) // Skip empty rows
-            .map(row => {
+            .map((row, index) => {
               try {
                 // Split by comma but respect quoted fields
                 const fields = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
@@ -52,15 +72,21 @@ export default function NewDashboard() {
                   field.replace(/^"|"$/g, '').trim() // Remove quotes and trim
                 );
                 
+                console.log(`Processing row ${index + 1}:`, { name, title, imageUrl });
+                
+                // Construct LinkedIn image URL from the CSV path
+                const constructedImageUrl = constructLinkedInImageUrl(imageUrl);
+                console.log(`Constructed image URL for ${name}:`, constructedImageUrl);
+                
                 return {
                   name: name || '',
                   title: title || '',
                   linkedinUrl: linkedinUrl || '',
-                  imageUrl: imageUrl || '',
+                  imageUrl: constructedImageUrl, // Use constructed LinkedIn URL
                   connection: connection || undefined
                 };
               } catch (parseError) {
-                console.warn('Failed to parse row:', row);
+                console.warn('Failed to parse row:', row, parseError);
                 return null;
               }
             })
@@ -70,8 +96,11 @@ export default function NewDashboard() {
               Boolean(profile.linkedinUrl)
             );
           
+          console.log('Successfully parsed profiles:', profiles.length);
+          console.log('First few profiles:', profiles.slice(0, 3));
           setAlumni(profiles);
         } catch (parseError) {
+          console.error('CSV parsing error:', parseError);
           throw new Error('Failed to parse CSV data. Please check the file format.');
         }
       } catch (err) {
@@ -237,12 +266,22 @@ export default function NewDashboard() {
                         src={profile.imageUrl}
                         alt={profile.name}
                         className="h-full w-full object-cover"
+                        onError={(e) => {
+                          console.log(`Image failed to load for ${profile.name}:`, profile.imageUrl);
+                          // Show initials fallback on error
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
                       />
-                    ) : (
-                      <span className="text-2xl font-bold text-blue-600">
-                        {profile.name.split(' ').map(n => n[0]).join('')}
-                      </span>
-                    )}
+                    ) : null}
+                    <span 
+                      className="text-2xl font-bold text-blue-600 flex items-center justify-center h-full w-full"
+                      style={{ display: profile.imageUrl ? 'none' : 'flex' }}
+                    >
+                      {profile.name.split(' ').map(n => n[0]).join('')}
+                    </span>
                   </div>
                   {profile.connection && (
                     <div className="absolute -bottom-1 -right-1 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
