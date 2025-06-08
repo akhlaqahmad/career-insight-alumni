@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +11,7 @@ import { Search, Filter, MapPin, Building2, GraduationCap, Loader2 } from 'lucid
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { NewDashboardExportButtons } from '@/components/NewDashboardExportButtons';
+import AlumniDetailsPage from '@/components/AlumniDetailsPage';
 
 interface AlumniProfile {
   name: string;
@@ -31,6 +31,7 @@ export default function NewDashboard() {
     industry: 'all',
     location: 'all'
   });
+  const [selectedAlumni, setSelectedAlumni] = useState<AlumniProfile | null>(null);
 
   // Improved CSV parsing function
   const parseCSVLine = (line: string): string[] => {
@@ -287,6 +288,28 @@ export default function NewDashboard() {
   const companies = [...new Set(alumni.map(a => extractCompany(a.title)).filter(Boolean))].sort();
   const industries = [...new Set(alumni.map(a => extractIndustry(a.title)).filter(Boolean))].sort();
 
+  // Handle alumni card click
+  const handleAlumniClick = (alumniProfile: AlumniProfile) => {
+    setSelectedAlumni(alumniProfile);
+  };
+
+  // Handle back navigation
+  const handleBackToList = () => {
+    setSelectedAlumni(null);
+  };
+
+  // Show details page if an alumni is selected
+  if (selectedAlumni) {
+    return (
+      <AlumniDetailsPage 
+        alumni={selectedAlumni} 
+        onBack={handleBackToList}
+        extractCompany={extractCompany}
+        extractIndustry={extractIndustry}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -408,7 +431,11 @@ export default function NewDashboard() {
       {/* Alumni Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAlumni.map((profile, index) => (
-          <Card key={`${profile.linkedinUrl}-${index}`} className="overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+          <Card 
+            key={`${profile.linkedinUrl}-${index}`} 
+            className="overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1 cursor-pointer"
+            onClick={() => handleAlumniClick(profile)}
+          >
             <div className="p-6">
               <div className="flex items-start space-x-4">
                 <div className="relative">
@@ -447,14 +474,7 @@ export default function NewDashboard() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-lg text-slate-900 truncate" title={profile.name}>
-                    <a
-                      href={profile.linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-blue-600 transition-colors"
-                    >
-                      {profile.name}
-                    </a>
+                    {profile.name}
                   </h3>
                   <p className="text-sm text-slate-600 mt-1 line-clamp-3" title={profile.title}>
                     {profile.title || 'No title available'}
@@ -477,13 +497,8 @@ export default function NewDashboard() {
               </div>
             </div>
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
-              <a
-                href={profile.linkedinUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center"
-              >
-                View LinkedIn Profile
+              <div className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center">
+                Click to view details
                 <svg
                   className="ml-1 h-4 w-4"
                   fill="none"
@@ -494,10 +509,10 @@ export default function NewDashboard() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    d="M9 5l7 7-7 7"
                   />
                 </svg>
-              </a>
+              </div>
             </div>
           </Card>
         ))}
