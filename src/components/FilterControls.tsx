@@ -1,8 +1,7 @@
-
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import { AlumniData } from '@/types/alumni';
+import { AlumniProfile } from '@/services/productionScraper';
 
 interface FilterControlsProps {
   filters: {
@@ -11,11 +10,11 @@ interface FilterControlsProps {
     location: string;
   };
   onFilterChange: (filters: { company: string; industry: string; location: string }) => void;
-  alumniData: AlumniData[];
+  alumniData: AlumniProfile[];
 }
 
 export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterControlsProps) => {
-  const companies = [...new Set(alumniData.map(a => a.currentCompany))].sort();
+  const companies = [...new Set(alumniData.map(a => a.current_company))].sort();
   const industries = [...new Set(alumniData.map(a => a.industry))].sort();
   const locations = [...new Set(alumniData.map(a => a.location))].sort();
 
@@ -35,9 +34,9 @@ export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterCo
           <SelectValue placeholder="Filter by company" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Companies</SelectItem>
-          {companies.map(company => (
-            <SelectItem key={company} value={company}>{company}</SelectItem>
+          <SelectItem key="all-companies" value="all">All Companies</SelectItem>
+          {companies.map((company, index) => (
+            <SelectItem key={`company-${index}-${company}`} value={company}>{company}</SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -50,9 +49,9 @@ export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterCo
           <SelectValue placeholder="Filter by industry" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Industries</SelectItem>
-          {industries.map(industry => (
-            <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+          <SelectItem key="all-industries" value="all">All Industries</SelectItem>
+          {industries.map((industry, index) => (
+            <SelectItem key={`industry-${index}-${industry}`} value={industry}>{industry}</SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -65,9 +64,9 @@ export const FilterControls = ({ filters, onFilterChange, alumniData }: FilterCo
           <SelectValue placeholder="Filter by location" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All Locations</SelectItem>
-          {locations.map(location => (
-            <SelectItem key={location} value={location}>{location}</SelectItem>
+          <SelectItem key="all-locations" value="all">All Locations</SelectItem>
+          {locations.map((location, index) => (
+            <SelectItem key={`location-${index}-${location}`} value={location}>{location}</SelectItem>
           ))}
         </SelectContent>
       </Select>

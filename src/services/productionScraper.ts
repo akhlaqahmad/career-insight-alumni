@@ -1,139 +1,327 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { CSVRow } from '@/utils/csvParser';
+import type { Database } from '@/integrations/supabase/types';
 
-export interface ScrapingJob {
-  id: string;
-  filename: string;
-  total_profiles: number;
-  processed_profiles: number;
-  successful_profiles: number;
-  failed_profiles: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-}
+type ScrapingJob = Database['public']['Tables']['scraping_jobs']['Row'];
+type ScrapingQueueItem = Database['public']['Tables']['scraping_queue']['Row'];
+export type AlumniProfile = Database['public']['Tables']['alumni_profiles']['Row'];
 
-export interface AlumniProfile {
-  id: string;
-  name: string;
-  linkedin_url: string;
-  current_title?: string;
-  current_company?: string;
-  industry?: string;
-  location?: string;
-  about?: string;
-  ai_summary?: string;
-  skills?: string[];
-  experience?: any[];
-  education?: any[];
-  scraped_at: string;
-  last_updated: string;
-}
+type CSVRow = { name: string; linkedin_url: string; [key: string]: string };
 
 export class ProductionScraper {
-  
-  async createScrapingJob(filename: string, csvRows: CSVRow[]): Promise<string> {
-    // Create the main scraping job
-    const { data: job, error: jobError } = await supabase
-      .from('scraping_jobs')
-      .insert({
+  private static instance: ProductionScraper;
+  private jobId: string | null = null;
+  private unsubscribe: (() => void) | null = null;
+
+  private constructor() {}
+
+  static getInstance(): ProductionScraper {
+    if (!ProductionScraper.instance) {
+      ProductionScraper.instance = new ProductionScraper();
+    }
+    return ProductionScraper.instance;
+  }
+
+  async createJob(filename: string, csvRows: CSVRow[]): Promise<string> {
+    try {
+      console.log(`[ProductionScraper] Creating new scraping job:`, {
         filename,
-        total_profiles: csvRows.length,
-        status: 'pending'
-      })
-      .select()
-      .single();
+        totalProfiles: csvRows.length
+      });
 
-    if (jobError) {
-      console.error('Error creating scraping job:', jobError);
-      throw new Error('Failed to create scraping job');
+      // Create scraping job
+      const { data: job, error: jobError } = await supabase
+        .from('scraping_jobs')
+        .insert({
+          filename,
+          total_profiles: csvRows.length,
+          status: 'pending',
+          processed_profiles: 0,
+          successful_profiles: 0,
+          failed_profiles: 0
+        })
+        .select()
+        .single();
+
+      if (jobError) {
+        console.error(`[ProductionScraper] Error creating job:`, {
+          error: jobError,
+          filename,
+          totalProfiles: csvRows.length
+        });
+        throw jobError;
+      }
+
+      console.log(`[ProductionScraper] Job created successfully:`, {
+        jobId: job.id,
+        filename: job.filename,
+        status: job.status
+      });
+
+      // Create queue items
+      const queueItems = csvRows.map((row, index) => ({
+        scraping_job_id: job.id,
+        linkedin_url: row.linkedin_url,
+        name: row.name,
+        priority: index,
+        status: "pending" as ScrapingQueueItem["status"]
+      }));
+
+      console.log(`[ProductionScraper] Creating ${queueItems.length} queue items`);
+
+      const { error: queueError } = await supabase
+        .from('scraping_queue')
+        .insert(queueItems);
+
+      if (queueError) {
+        console.error(`[ProductionScraper] Error creating queue items:`, {
+          error: queueError,
+          jobId: job.id,
+          totalItems: queueItems.length
+        });
+        throw queueError;
+      }
+
+      console.log(`[ProductionScraper] Queue items created successfully`);
+
+      // Start job processor
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-processor`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: job.id })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error(`[ProductionScraper] Error starting job processor:`, {
+          status: response.status,
+          statusText: response.statusText,
+          error
+        });
+        throw new Error(error.message || 'Failed to start job processor');
+      }
+
+      console.log(`[ProductionScraper] Job processor started successfully`);
+
+      this.jobId = job.id;
+      return job.id;
+
+    } catch (error) {
+      console.error(`[ProductionScraper] Error in createJob:`, {
+        error: error.message,
+        stack: error.stack,
+        filename,
+        totalProfiles: csvRows.length
+      });
+      throw error;
     }
-
-    // Add all URLs to the scraping queue
-    const queueItems = csvRows.map(row => ({
-      scraping_job_id: job.id,
-      linkedin_url: row.linkedin_url,
-      name: row.name,
-      status: 'pending' as const
-    }));
-
-    const { error: queueError } = await supabase
-      .from('scraping_queue')
-      .insert(queueItems);
-
-    if (queueError) {
-      console.error('Error creating queue items:', queueError);
-      throw new Error('Failed to create queue items');
-    }
-
-    console.log(`Created scraping job ${job.id} with ${csvRows.length} profiles`);
-    return job.id;
   }
 
-  async startScrapingJob(jobId: string): Promise<void> {
-    console.log(`Starting scraping job: ${jobId}`);
-    
-    // Call the job processor edge function
-    const { error } = await supabase.functions.invoke('job-processor', {
-      body: { jobId }
-    });
+  subscribeToJobUpdates(
+    jobId: string,
+    onProgress: (progress: { processed: number; total: number; status: string }) => void,
+    onNewProfile: (profile: AlumniProfile) => void,
+    onError: (error: Error) => void
+  ) {
+    try {
+      console.log(`[ProductionScraper] Subscribing to job updates:`, { jobId });
 
-    if (error) {
-      console.error('Error starting job processor:', error);
-      throw new Error('Failed to start scraping job');
+      // Subscribe to job status changes
+      const jobSubscription = supabase
+        .channel(`job-${jobId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'scraping_jobs',
+            filter: `id=eq.${jobId}`
+          },
+          (payload) => {
+            console.log(`[ProductionScraper] Job status update:`, {
+              jobId,
+              newStatus: payload.new.status,
+              processed: payload.new.processed_profiles,
+              total: payload.new.total_profiles
+            });
+
+            onProgress({
+              processed: payload.new.processed_profiles,
+              total: payload.new.total_profiles,
+              status: payload.new.status
+            });
+          }
+        )
+        .subscribe();
+
+      // Subscribe to new profiles
+      const profileSubscription = supabase
+        .channel(`profiles-${jobId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'alumni_profiles',
+            filter: `scraping_job_id=eq.${jobId}`
+          },
+          (payload) => {
+            console.log(`[ProductionScraper] New profile scraped:`, {
+              jobId,
+              profileId: payload.new.id,
+              name: payload.new.name
+            });
+
+            onNewProfile(payload.new as AlumniProfile);
+          }
+        )
+        .subscribe();
+
+      this.unsubscribe = () => {
+        console.log(`[ProductionScraper] Unsubscribing from job updates:`, { jobId });
+        jobSubscription.unsubscribe();
+        profileSubscription.unsubscribe();
+      };
+
+    } catch (error) {
+      console.error(`[ProductionScraper] Error in subscribeToJobUpdates:`, {
+        error: error.message,
+        stack: error.stack,
+        jobId
+      });
+      onError(error);
     }
   }
 
-  async getScrapingJob(jobId: string): Promise<ScrapingJob | null> {
-    const { data, error } = await supabase
-      .from('scraping_jobs')
-      .select('*')
-      .eq('id', jobId)
-      .single();
-
-    if (error) {
-      console.error('Error fetching scraping job:', error);
-      return null;
+  unsubscribeFromJobUpdates() {
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+      this.jobId = null;
     }
-
-    return data;
   }
 
-  async getUserScrapingJobs(): Promise<ScrapingJob[]> {
-    const { data, error } = await supabase
-      .from('scraping_jobs')
-      .select('*')
-      .order('created_at', { ascending: false });
+  async getJobStatus(jobId: string): Promise<ScrapingJob> {
+    try {
+      console.log(`[ProductionScraper] Fetching job status:`, { jobId });
 
-    if (error) {
-      console.error('Error fetching user scraping jobs:', error);
-      return [];
+      const { data: job, error } = await supabase
+        .from('scraping_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+      if (error) {
+        console.error(`[ProductionScraper] Error fetching job status:`, {
+          error,
+          jobId
+        });
+        throw error;
+      }
+
+      console.log(`[ProductionScraper] Job status:`, {
+        jobId,
+        status: job.status,
+        processed: job.processed_profiles,
+        total: job.total_profiles
+      });
+
+      return job;
+
+    } catch (error) {
+      console.error(`[ProductionScraper] Error in getJobStatus:`, {
+        error: error.message,
+        stack: error.stack,
+        jobId
+      });
+      throw error;
     }
-
-    return data || [];
   }
 
-  async getAlumniProfiles(limit = 100, offset = 0): Promise<AlumniProfile[]> {
+  async getQueueItems(jobId: string): Promise<ScrapingQueueItem[]> {
+    try {
+      console.log(`[ProductionScraper] Fetching queue items:`, { jobId });
+
+      const { data: items, error } = await supabase
+        .from('scraping_queue')
+        .select('*')
+        .eq('scraping_job_id', jobId)
+        .order('priority', { ascending: true });
+
+      if (error) {
+        console.error(`[ProductionScraper] Error fetching queue items:`, {
+          error,
+          jobId
+        });
+        throw error;
+      }
+
+      console.log(`[ProductionScraper] Queue items:`, {
+        jobId,
+        totalItems: items.length,
+        statuses: items.reduce((acc, item) => {
+          acc[item.status] = (acc[item.status] || 0) + 1;
+          return acc;
+        }, {})
+      });
+
+      return items;
+
+    } catch (error) {
+      console.error(`[ProductionScraper] Error in getQueueItems:`, {
+        error: error.message,
+        stack: error.stack,
+        jobId
+      });
+      throw error;
+    }
+  }
+
+  async getScrapedProfiles(jobId: string): Promise<AlumniProfile[]> {
+    try {
+      console.log(`[ProductionScraper] Fetching scraped profiles:`, { jobId });
+
+      const { data: profiles, error } = await supabase
+        .from('alumni_profiles')
+        .select('*')
+        .eq('scraping_job_id', jobId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error(`[ProductionScraper] Error fetching profiles:`, {
+          error,
+          jobId
+        });
+        throw error;
+      }
+
+      console.log(`[ProductionScraper] Scraped profiles:`, {
+        jobId,
+        totalProfiles: profiles.length
+      });
+
+      return profiles;
+
+    } catch (error) {
+      console.error(`[ProductionScraper] Error in getScrapedProfiles:`, {
+        error: error.message,
+        stack: error.stack,
+        jobId
+      });
+      throw error;
+    }
+  }
+
+  async getAlumniProfiles(): Promise<AlumniProfile[]> {
     const { data, error } = await supabase
       .from('alumni_profiles')
       .select('*')
-      .order('scraped_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching alumni profiles:', error);
-      return [];
-    }
-
-    // Transform the data to ensure proper types
-    return (data || []).map(profile => ({
-      ...profile,
-      experience: Array.isArray(profile.experience) ? profile.experience : [],
-      education: Array.isArray(profile.education) ? profile.education : [],
-      skills: Array.isArray(profile.skills) ? profile.skills : []
-    }));
+    if (error) throw error;
+    return data;
   }
 
   async searchAlumniProfiles(query: string): Promise<AlumniProfile[]> {
@@ -141,67 +329,21 @@ export class ProductionScraper {
       .from('alumni_profiles')
       .select('*')
       .or(`name.ilike.%${query}%,current_company.ilike.%${query}%,current_title.ilike.%${query}%`)
-      .order('scraped_at', { ascending: false })
-      .limit(50);
+      .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error searching alumni profiles:', error);
-      return [];
-    }
-
-    // Transform the data to ensure proper types
-    return (data || []).map(profile => ({
-      ...profile,
-      experience: Array.isArray(profile.experience) ? profile.experience : [],
-      education: Array.isArray(profile.education) ? profile.education : [],
-      skills: Array.isArray(profile.skills) ? profile.skills : []
-    }));
+    if (error) throw error;
+    return data;
   }
 
-  // Real-time subscription for job progress
-  subscribeToJobProgress(jobId: string, callback: (job: ScrapingJob) => void) {
-    return supabase
-      .channel(`job-${jobId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'scraping_jobs',
-          filter: `id=eq.${jobId}`
-        },
-        (payload) => {
-          console.log('Job progress update:', payload);
-          callback(payload.new as ScrapingJob);
-        }
-      )
-      .subscribe();
-  }
-
-  // Real-time subscription for new profiles
   subscribeToNewProfiles(callback: (profile: AlumniProfile) => void) {
     return supabase
-      .channel('new-profiles')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'alumni_profiles'
-        },
-        (payload) => {
-          console.log('New profile scraped:', payload);
-          const profile = payload.new as any;
-          callback({
-            ...profile,
-            experience: Array.isArray(profile.experience) ? profile.experience : [],
-            education: Array.isArray(profile.education) ? profile.education : [],
-            skills: Array.isArray(profile.skills) ? profile.skills : []
-          });
-        }
+      .channel('alumni_profiles')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'alumni_profiles' },
+        (payload) => callback(payload.new as AlumniProfile)
       )
       .subscribe();
   }
 }
 
-export const productionScraper = new ProductionScraper();
+export const productionScraper = ProductionScraper.getInstance();

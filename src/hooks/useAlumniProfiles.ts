@@ -1,6 +1,6 @@
-
 import { useState, useEffect } from 'react';
-import { productionScraper, AlumniProfile } from '@/services/productionScraper';
+import { productionScraper } from '@/services/productionScraper';
+import type { AlumniProfile } from '@/services/productionScraper';
 
 export const useAlumniProfiles = () => {
   const [profiles, setProfiles] = useState<AlumniProfile[]>([]);
@@ -9,9 +9,14 @@ export const useAlumniProfiles = () => {
   useEffect(() => {
     const fetchProfiles = async () => {
       setLoading(true);
-      const profileData = await productionScraper.getAlumniProfiles();
-      setProfiles(profileData);
-      setLoading(false);
+      try {
+        const profileData = await productionScraper.getAlumniProfiles();
+        setProfiles(profileData);
+      } catch (error) {
+        console.error('Error fetching profiles:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchProfiles();
@@ -28,9 +33,14 @@ export const useAlumniProfiles = () => {
 
   const searchProfiles = async (query: string) => {
     setLoading(true);
-    const results = await productionScraper.searchAlumniProfiles(query);
-    setProfiles(results);
-    setLoading(false);
+    try {
+      const results = await productionScraper.searchAlumniProfiles(query);
+      setProfiles(results);
+    } catch (error) {
+      console.error('Error searching profiles:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return { profiles, loading, searchProfiles };
