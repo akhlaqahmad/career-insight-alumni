@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Papa from 'papaparse';
 import { ProductionScraper } from '@/services/productionScraper';
 import type { AlumniProfile } from '@/services/productionScraper';
@@ -307,6 +307,20 @@ export default function Index() {
             <div className="flex items-center space-x-4">
               <h1 className="text-2xl font-bold text-slate-900">ASB Alumni Career Tracker</h1>
               <Badge variant="secondary" className="bg-green-100 text-green-800">Production Ready</Badge>
+              <nav className="ml-8 flex space-x-4">
+                <Link 
+                  to="/" 
+                  className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Dashboard
+                </Link>
+                <Link 
+                  to="/new-dashboard" 
+                  className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  New Dashboard
+                </Link>
+              </nav>
             </div>
             <div className="flex items-center space-x-4">
               <FileUpload onFileUpload={handleFileUpload} />
