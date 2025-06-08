@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,16 +32,129 @@ export default function NewDashboard() {
     location: 'all'
   });
 
-  // Function to construct LinkedIn image URL from CSV path
+  // Improved CSV parsing function
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    let i = 0;
+
+    while (i < line.length) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          // Handle escaped quotes
+          current += '"';
+          i += 2;
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+          i++;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // End of field
+        result.push(current.trim());
+        current = '';
+        i++;
+      } else {
+        current += char;
+        i++;
+      }
+    }
+
+    // Add the last field
+    result.push(current.trim());
+    return result;
+  };
+
+  // Improved company extraction
+  const extractCompany = (title: string) => {
+    if (!title) return null;
+    
+    // Clean the title first
+    const cleanTitle = title.replace(/\s+/g, ' ').trim();
+    
+    // Multiple patterns to match company names
+    const patterns = [
+      /(?:at|@)\s+([^|,\n]+?)(?:\s*\||$)/i,  // "at Company" or "@Company"
+      /(?:^|\s)([A-Z][^|,\n]*?(?:Inc|LLC|Corp|Ltd|Co\.|Company|Group|Holdings))(?:\s*\||$)/i,
+      /(?:^|\s)([A-Z][a-zA-Z\s&]{2,30})(?:\s*\||$)/i  // Generic company pattern
+    ];
+    
+    for (const pattern of patterns) {
+      const match = cleanTitle.match(pattern);
+      if (match) {
+        const company = match[1].trim();
+        // Filter out common non-company words
+        if (company && !['The', 'And', 'Or', 'In', 'On', 'At', 'To', 'For'].includes(company)) {
+          return company;
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // Improved industry extraction
+  const extractIndustry = (title: string) => {
+    if (!title) return null;
+    
+    const industryKeywords = [
+      'Banking', 'Finance', 'Financial Services', 'Investment', 'Wealth Management',
+      'Technology', 'Tech', 'Software', 'IT', 'Information Technology',
+      'Consulting', 'Advisory', 'Strategy',
+      'Education', 'Academic', 'University', 'School',
+      'Healthcare', 'Medical', 'Health', 'Pharmaceutical',
+      'Energy', 'Oil', 'Gas', 'Renewable',
+      'Insurance', 'Assurance',
+      'Telecommunications', 'Telecom',
+      'Manufacturing', 'Industrial',
+      'Retail', 'E-commerce', 'Sales',
+      'Media', 'Marketing', 'Advertising',
+      'Real Estate', 'Property',
+      'Government', 'Public Sector', 'Non-profit'
+    ];
+    
+    const titleLower = title.toLowerCase();
+    for (const keyword of industryKeywords) {
+      if (titleLower.includes(keyword.toLowerCase())) {
+        return keyword;
+      }
+    }
+    
+    return null;
+  };
+
+  // Improved LinkedIn image URL construction
   const constructLinkedInImageUrl = (imagePath: string) => {
     if (!imagePath) return '';
     
-    // Extract the numeric ID from the path (e.g., "1705634904192" from "Asia School of Business_ People _ LinkedIn_files/1705634904192")
-    const match = imagePath.match(/(\d{13})/); // LinkedIn IDs are typically 13 digits
-    if (match) {
-      const id = match[1];
-      // Construct LinkedIn image URL - this is the basic format, may need adjustment
-      return `https://media.licdn.com/dms/image/v2/D5603AQF${id}/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/${id}?e=1755129600&v=beta&t=placeholder`;
+    console.log('Processing image path:', imagePath);
+    
+    // Try to extract LinkedIn profile ID patterns
+    const patterns = [
+      /(\d{13})/,  // 13-digit LinkedIn IDs
+      /(\d{10,15})/,  // Other common ID lengths
+      /AQ[A-Za-z0-9_-]+/,  // LinkedIn AQ IDs
+      /profile-displayphoto.*?(\w+)/  // Display photo IDs
+    ];
+    
+    for (const pattern of patterns) {
+      const match = imagePath.match(pattern);
+      if (match) {
+        const id = match[1] || match[0];
+        // Try different LinkedIn CDN formats
+        const possibleUrls = [
+          `https://media.licdn.com/dms/image/v2/D5603AQF${id}/profile-displayphoto-shrink_400_400/0/${id}?e=1755129600&v=beta&t=placeholder`,
+          `https://media.licdn.com/dms/image/${id}/profile-displayphoto-shrink_400_400/0/?e=1755129600&v=beta&t=placeholder`,
+          `https://media.licdn.com/dms/image/v2/${id}/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/?e=1755129600&v=beta&t=placeholder`
+        ];
+        
+        console.log(`Generated image URLs for ${id}:`, possibleUrls);
+        return possibleUrls[0]; // Return the first one for now
+      }
     }
     
     return '';
@@ -49,63 +163,103 @@ export default function NewDashboard() {
   useEffect(() => {
     const loadAlumniData = async () => {
       try {
+        console.log('Starting to load alumni data...');
         const response = await fetch('/data/alumni_profiles.csv');
         if (!response.ok) {
-          throw new Error('Failed to fetch CSV file');
+          throw new Error(`Failed to fetch CSV file: ${response.status} ${response.statusText}`);
         }
         const csv = await response.text();
         
-        console.log('CSV content loaded, first 500 chars:', csv.substring(0, 500));
+        console.log('CSV content loaded, length:', csv.length);
+        console.log('First 500 chars:', csv.substring(0, 500));
         
-        // Parse CSV with error handling
-        try {
-          const rows = csv.split('\n').slice(1); // Skip header
-          console.log('Total rows to process:', rows.length);
-          
-          const profiles = rows
-            .filter(row => row.trim()) // Skip empty rows
-            .map((row, index) => {
-              try {
-                // Split by comma but respect quoted fields
-                const fields = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-                const [name, title, linkedinUrl, imageUrl, connection] = fields.map(field => 
-                  field.replace(/^"|"$/g, '').trim() // Remove quotes and trim
-                );
-                
-                console.log(`Processing row ${index + 1}:`, { name, title, imageUrl });
-                
-                // Construct LinkedIn image URL from the CSV path
-                const constructedImageUrl = constructLinkedInImageUrl(imageUrl);
-                console.log(`Constructed image URL for ${name}:`, constructedImageUrl);
-                
-                return {
-                  name: name || '',
-                  title: title || '',
-                  linkedinUrl: linkedinUrl || '',
-                  imageUrl: constructedImageUrl, // Use constructed LinkedIn URL
-                  connection: connection || undefined
-                };
-              } catch (parseError) {
-                console.warn('Failed to parse row:', row, parseError);
-                return null;
-              }
-            })
-            .filter((profile): profile is AlumniProfile => 
-              profile !== null && 
-              Boolean(profile.name) && 
-              Boolean(profile.linkedinUrl)
-            );
-          
-          console.log('Successfully parsed profiles:', profiles.length);
-          console.log('First few profiles:', profiles.slice(0, 3));
-          setAlumni(profiles);
-        } catch (parseError) {
-          console.error('CSV parsing error:', parseError);
-          throw new Error('Failed to parse CSV data. Please check the file format.');
+        // Split into lines and remove header
+        const lines = csv.split('\n').filter(line => line.trim());
+        console.log('Total lines (including header):', lines.length);
+        
+        if (lines.length < 2) {
+          throw new Error('CSV file appears to be empty or only contains headers');
         }
+        
+        // Process each line (skip header)
+        const profiles: AlumniProfile[] = [];
+        const errors: string[] = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          try {
+            console.log(`Processing line ${i}:`, line.substring(0, 100) + '...');
+            
+            // Parse the CSV line
+            const fields = parseCSVLine(line);
+            console.log(`Parsed ${fields.length} fields:`, fields.map(f => f.substring(0, 50)));
+            
+            if (fields.length < 3) {
+              console.warn(`Line ${i} has insufficient fields (${fields.length}):`, fields);
+              continue;
+            }
+            
+            // Extract and validate fields
+            const name = fields[0]?.replace(/^"|"$/g, '').trim() || '';
+            const title = fields[1]?.replace(/^"|"$/g, '').trim() || '';
+            const linkedinUrl = fields[2]?.replace(/^"|"$/g, '').trim() || '';
+            const imageUrl = fields[3]?.replace(/^"|"$/g, '').trim() || '';
+            const connection = fields[4]?.replace(/^"|"$/g, '').trim() || undefined;
+            
+            console.log(`Extracted data for line ${i}:`, { name, title: title.substring(0, 50), linkedinUrl, imageUrl: imageUrl.substring(0, 50), connection });
+            
+            // Validate required fields
+            if (!name || !linkedinUrl) {
+              console.warn(`Line ${i} missing required fields - name: "${name}", linkedinUrl: "${linkedinUrl}"`);
+              continue;
+            }
+            
+            // Validate LinkedIn URL format
+            if (!linkedinUrl.includes('linkedin.com')) {
+              console.warn(`Line ${i} has invalid LinkedIn URL: "${linkedinUrl}"`);
+              continue;
+            }
+            
+            // Construct image URL
+            const constructedImageUrl = constructLinkedInImageUrl(imageUrl);
+            console.log(`Constructed image URL for ${name}:`, constructedImageUrl);
+            
+            const profile: AlumniProfile = {
+              name,
+              title,
+              linkedinUrl,
+              imageUrl: constructedImageUrl,
+              connection
+            };
+            
+            profiles.push(profile);
+            console.log(`Successfully added profile for ${name}`);
+            
+          } catch (parseError) {
+            const errorMsg = `Failed to parse line ${i}: ${parseError}`;
+            console.error(errorMsg, line);
+            errors.push(errorMsg);
+          }
+        }
+        
+        console.log(`Successfully parsed ${profiles.length} profiles`);
+        console.log('Sample profiles:', profiles.slice(0, 3));
+        
+        if (errors.length > 0) {
+          console.warn(`Encountered ${errors.length} parsing errors:`, errors.slice(0, 5));
+        }
+        
+        if (profiles.length === 0) {
+          throw new Error('No valid alumni profiles could be parsed from the CSV file');
+        }
+        
+        setAlumni(profiles);
+        
       } catch (err) {
         console.error('Error loading alumni data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load alumni data');
+        setError(err instanceof Error ? err.message : 'Failed to load alumni data. Please check the console for details.');
       } finally {
         setIsLoading(false);
       }
@@ -113,22 +267,6 @@ export default function NewDashboard() {
 
     loadAlumniData();
   }, []);
-
-  // Extract companies and industries from titles
-  const extractCompany = (title: string) => {
-    const companyMatch = title.match(/at\s+([^|,]+)/i);
-    return companyMatch ? companyMatch[1].trim() : null;
-  };
-
-  const extractIndustry = (title: string) => {
-    const industryKeywords = ['Banking', 'Finance', 'Technology', 'Consulting', 'Education', 'Healthcare', 'Energy', 'Insurance', 'Telecommunications', 'Manufacturing', 'Retail', 'Media', 'Real Estate', 'Government'];
-    for (const keyword of industryKeywords) {
-      if (title.toLowerCase().includes(keyword.toLowerCase())) {
-        return keyword;
-      }
-    }
-    return null;
-  };
 
   const filteredAlumni = alumni.filter(profile => {
     const matchesSearch = profile.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -159,8 +297,11 @@ export default function NewDashboard() {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-red-600">{error}</div>
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Alert className="max-w-md">
+          <AlertTitle>Error Loading Alumni Data</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -267,7 +408,7 @@ export default function NewDashboard() {
       {/* Alumni Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAlumni.map((profile, index) => (
-          <Card key={index} className="overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
+          <Card key={`${profile.linkedinUrl}-${index}`} className="overflow-hidden hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
             <div className="p-6">
               <div className="flex items-start space-x-4">
                 <div className="relative">
@@ -279,19 +420,23 @@ export default function NewDashboard() {
                         className="h-full w-full object-cover"
                         onError={(e) => {
                           console.log(`Image failed to load for ${profile.name}:`, profile.imageUrl);
-                          // Show initials fallback on error
                           const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const fallback = target.nextElementSibling as HTMLElement;
-                          if (fallback) fallback.style.display = 'flex';
+                          const fallback = target.parentElement?.querySelector('.initials-fallback') as HTMLElement;
+                          if (fallback) {
+                            target.style.display = 'none';
+                            fallback.style.display = 'flex';
+                          }
+                        }}
+                        onLoad={() => {
+                          console.log(`Image loaded successfully for ${profile.name}`);
                         }}
                       />
                     ) : null}
                     <span 
-                      className="text-2xl font-bold text-blue-600 flex items-center justify-center h-full w-full"
+                      className="initials-fallback text-2xl font-bold text-blue-600 flex items-center justify-center h-full w-full"
                       style={{ display: profile.imageUrl ? 'none' : 'flex' }}
                     >
-                      {profile.name.split(' ').map(n => n[0]).join('')}
+                      {profile.name.split(' ').map(n => n[0]?.toUpperCase()).filter(Boolean).join('').substring(0, 2)}
                     </span>
                   </div>
                   {profile.connection && (
@@ -301,7 +446,7 @@ export default function NewDashboard() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-lg text-slate-900 truncate">
+                  <h3 className="font-semibold text-lg text-slate-900 truncate" title={profile.name}>
                     <a
                       href={profile.linkedinUrl}
                       target="_blank"
@@ -311,15 +456,19 @@ export default function NewDashboard() {
                       {profile.name}
                     </a>
                   </h3>
-                  <p className="text-sm text-slate-600 mt-1 line-clamp-2">{profile.title}</p>
+                  <p className="text-sm text-slate-600 mt-1 line-clamp-3" title={profile.title}>
+                    {profile.title || 'No title available'}
+                  </p>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {extractCompany(profile.title) && (
-                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100">
+                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100" title={`Company: ${extractCompany(profile.title)}`}>
+                        <Building2 className="h-3 w-3 mr-1" />
                         {extractCompany(profile.title)}
                       </Badge>
                     )}
                     {extractIndustry(profile.title) && (
-                      <Badge variant="outline" className="border-slate-200 text-slate-600">
+                      <Badge variant="outline" className="border-slate-200 text-slate-600" title={`Industry: ${extractIndustry(profile.title)}`}>
+                        <GraduationCap className="h-3 w-3 mr-1" />
                         {extractIndustry(profile.title)}
                       </Badge>
                     )}
@@ -353,6 +502,13 @@ export default function NewDashboard() {
           </Card>
         ))}
       </div>
+
+      {filteredAlumni.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-slate-500 text-lg">No alumni found matching your criteria.</p>
+          <p className="text-slate-400 text-sm mt-2">Try adjusting your search or filters.</p>
+        </div>
+      )}
     </div>
   );
 }
