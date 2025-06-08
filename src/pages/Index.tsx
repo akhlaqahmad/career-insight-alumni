@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -302,22 +301,27 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
+      <header className="bg-[#B4173A] border-b border-[#D92045] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-slate-900">ASB Alumni Career Tracker</h1>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">Production Ready</Badge>
+              <img 
+                src="/asbhive-logo.jpeg" 
+                alt="ASB Hive Logo" 
+                className="h-10 w-auto rounded-lg"
+              />
+              <h1 className="text-2xl font-bold text-white">ASB Alumni Career Tracker</h1>
+              <Badge variant="secondary" className="bg-white/20 text-white">Production Ready</Badge>
               <nav className="ml-8 flex space-x-4">
                 <Link 
                   to="/old-dashboard" 
-                  className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium"
+                  className="text-white/90 hover:text-white hover:bg-[#D92045] px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Old Dashboard
                 </Link>
                 <Link 
                   to="/" 
-                  className="text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md text-sm font-medium"
+                  className="text-white/90 hover:text-white hover:bg-[#D92045] px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Alumni Network
                 </Link>
@@ -514,6 +518,36 @@ export default function Index() {
           </div>
         )}
       </main>
+
+      {/* Footer */}
+      <footer className="bg-[#B4173A] border-t border-[#D92045] mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <h3 className="text-white font-semibold mb-4">About</h3>
+              <p className="text-white/80">ASB Alumni Career Tracker helps you stay connected with fellow alumni and track career progress.</p>
+            </div>
+            <div>
+              <h3 className="text-white font-semibold mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                <li>
+                  <Link to="/" className="text-white/80 hover:text-white transition-colors">Alumni Network</Link>
+                </li>
+                <li>
+                  <Link to="/old-dashboard" className="text-white/80 hover:text-white transition-colors">Old Dashboard</Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-white font-semibold mb-4">Contact</h3>
+              <p className="text-white/80">For support or inquiries, please contact the ASB Alumni Office.</p>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-[#D92045] text-center text-white/60">
+            <p>&copy; {new Date().getFullYear()} ASB Alumni Career Tracker. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

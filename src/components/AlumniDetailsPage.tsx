@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -67,7 +66,7 @@ Please provide the following information in JSON format:
 
 Make reasonable estimates where data is limited and add * for guesses.`;
 
-      const response = await fetch('/api/generate-ai-insights', {
+      const response = await fetch('http://localhost:8080/api/generate-ai-insights', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,11 +75,34 @@ Make reasonable estimates where data is limited and add * for guesses.`;
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate AI insights');
+        const errorData = await response.json().catch(() => ({ details: 'Failed to parse error response' }));
+        throw new Error(errorData.details || 'Failed to generate AI insights');
       }
 
       const data = await response.json();
-      setAiData(JSON.parse(data.insights));
+      console.log('Received AI insights:', data);
+      
+      if (!data.insights) {
+        throw new Error('No insights data received from server');
+      }
+
+      // Handle both parsed JSON and raw response
+      if (typeof data.insights === 'string') {
+        try {
+          const parsedInsights = JSON.parse(data.insights);
+          setAiData(parsedInsights);
+        } catch (parseError) {
+          console.error('Error parsing AI insights:', parseError);
+          throw new Error('Failed to parse AI insights');
+        }
+      } else if (data.insights.rawResponse) {
+        // Handle raw response case
+        console.warn('Received raw response instead of JSON:', data.insights.rawResponse);
+        throw new Error('AI generated invalid response format');
+      } else {
+        // Handle already parsed JSON case
+        setAiData(data.insights);
+      }
     } catch (err) {
       console.error('Error generating AI insights:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate insights');

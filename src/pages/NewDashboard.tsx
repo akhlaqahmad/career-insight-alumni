@@ -331,15 +331,26 @@ export default function NewDashboard() {
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">ASB Alumni Network</h1>
-          <p className="text-slate-600 mt-1">Connect with fellow alumni and explore career opportunities</p>
+      <div className="bg-[#B4173A] border-b border-[#D92045] mb-8">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <img 
+                src="/asbhive-logo.jpeg" 
+                alt="ASB Hive Logo" 
+                className="h-12 w-auto rounded-lg"
+              />
+              <div>
+                <h1 className="text-3xl font-bold text-white">ASB Alumni Network</h1>
+                <p className="text-white/80 mt-1">Connect with fellow alumni and explore career opportunities</p>
+              </div>
+            </div>
+            <nav className="flex items-center space-x-4">
+              <Link to="/" className="text-white/90 hover:text-white hover:bg-[#D92045] px-4 py-2 rounded-md font-medium transition-colors">Alumni Network</Link>
+              <Link to="/old-dashboard" className="text-white/90 hover:text-white hover:bg-[#D92045] px-4 py-2 rounded-md font-medium transition-colors">Old Dashboard</Link>
+            </nav>
+          </div>
         </div>
-        <nav className="flex items-center space-x-4">
-          <Link to="/" className="text-blue-600 font-medium">Alumni Network</Link>
-          <Link to="/old-dashboard" className="text-slate-600 hover:text-slate-900">Old Dashboard</Link>
-        </nav>
       </div>
 
       {/* Search and Filters */}
@@ -523,6 +534,51 @@ export default function NewDashboard() {
           <p className="text-slate-400 text-sm mt-2">Try adjusting your search or filters.</p>
         </div>
       )}
+
+      {/* Footer */}
+      <footer className="bg-[#B4173A] border-t border-[#D92045] mt-16">
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="md:col-span-1">
+              <img 
+                src="/asbhive-logo.jpeg" 
+                alt="ASB Hive Logo" 
+                className="h-12 w-auto mb-4 rounded-lg"
+              />
+              <p className="text-white/80">ASB Alumni Network helps you stay connected with fellow alumni and explore career opportunities.</p>
+            </div>
+            <div>
+              <h3 className="text-white font-semibold mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                <li>
+                  <Link to="/" className="text-white/80 hover:text-white transition-colors">Alumni Network</Link>
+                </li>
+                <li>
+                  <Link to="/old-dashboard" className="text-white/80 hover:text-white transition-colors">Old Dashboard</Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-white font-semibold mb-4">Resources</h3>
+              <ul className="space-y-2">
+                <li>
+                  <a href="#" className="text-white/80 hover:text-white transition-colors">Career Resources</a>
+                </li>
+                <li>
+                  <a href="#" className="text-white/80 hover:text-white transition-colors">Events</a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-white font-semibold mb-4">Contact</h3>
+              <p className="text-white/80">For support or inquiries, please contact the ASB Alumni Office.</p>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-[#D92045] text-center text-white/60">
+            <p>&copy; {new Date().getFullYear()} ASB Alumni Network. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
