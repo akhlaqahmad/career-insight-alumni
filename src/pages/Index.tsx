@@ -12,12 +12,15 @@ import { FilterControls } from '@/components/FilterControls';
 import { ProgressIndicator } from '@/components/ProgressIndicator';
 import { AlumniData } from '@/types/alumni';
 import { mockAlumniData } from '@/data/mockData';
+import { parseCSV } from '@/utils/csvParser';
+import { batchScrapeProfiles } from '@/services/mockScraper';
 
 const Index = () => {
   const [alumniData, setAlumniData] = useState<AlumniData[]>(mockAlumniData);
   const [filteredData, setFilteredData] = useState<AlumniData[]>(mockAlumniData);
   const [selectedAlumni, setSelectedAlumni] = useState<AlumniData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState({ current: 0, total: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     company: 'all',
@@ -26,12 +29,36 @@ const Index = () => {
   });
 
   const handleFileUpload = async (file: File) => {
-    setIsProcessing(true);
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setIsProcessing(false);
-    // In real implementation, this would parse CSV and trigger scraping
-    console.log('File uploaded:', file.name);
+    try {
+      setIsProcessing(true);
+      setProcessingProgress({ current: 0, total: 0 });
+      
+      console.log('Parsing CSV file:', file.name);
+      const csvRows = await parseCSV(file);
+      console.log('Parsed CSV rows:', csvRows.length);
+      
+      setProcessingProgress({ current: 0, total: csvRows.length });
+      
+      const scrapedProfiles = await batchScrapeProfiles(
+        csvRows,
+        (current, total, profile) => {
+          setProcessingProgress({ current, total });
+          if (profile) {
+            console.log(`Scraped profile ${current}/${total}:`, profile.name);
+          }
+        }
+      );
+      
+      console.log('Scraping completed. Total profiles:', scrapedProfiles.length);
+      setAlumniData(scrapedProfiles);
+      setFilteredData(scrapedProfiles);
+      
+    } catch (error) {
+      console.error('Error processing CSV:', error);
+    } finally {
+      setIsProcessing(false);
+      setProcessingProgress({ current: 0, total: 0 });
+    }
   };
 
   const handleSearch = (term: string) => {
@@ -103,7 +130,12 @@ const Index = () => {
       </header>
 
       {/* Progress Indicator */}
-      {isProcessing && <ProgressIndicator />}
+      {isProcessing && (
+        <ProgressIndicator 
+          current={processingProgress.current} 
+          total={processingProgress.total} 
+        />
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
