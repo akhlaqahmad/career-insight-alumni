@@ -288,12 +288,11 @@ export default function NewDashboard() {
   const companies = [...new Set(alumni.map(a => extractCompany(a.title)).filter(Boolean))].sort();
   const industries = [...new Set(alumni.map(a => extractIndustry(a.title)).filter(Boolean))].sort();
 
-  // Handle alumni card click
+  // Update the API call in the details page to use the correct endpoint
   const handleAlumniClick = (alumniProfile: AlumniProfile) => {
     setSelectedAlumni(alumniProfile);
   };
 
-  // Handle back navigation
   const handleBackToList = () => {
     setSelectedAlumni(null);
   };

@@ -1,9 +1,10 @@
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ExternalLink, MapPin, Building2, GraduationCap, Calendar, Mail } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Building2, GraduationCap, Brain, DollarSign, Star, MessageCircle, Smile, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AlumniProfile {
   name: string;
@@ -11,6 +12,17 @@ interface AlumniProfile {
   linkedinUrl: string;
   imageUrl: string;
   connection: string | undefined;
+}
+
+interface AIGeneratedData {
+  currentTitle: string;
+  industry: string;
+  overachieverScore: number;
+  overachieverReason: string;
+  predictedIncome: string;
+  seniorityScore: number;
+  introScript: string;
+  personalizedJoke: string;
 }
 
 interface AlumniDetailsPageProps {
@@ -21,8 +33,65 @@ interface AlumniDetailsPageProps {
 }
 
 export default function AlumniDetailsPage({ alumni, onBack, extractCompany, extractIndustry }: AlumniDetailsPageProps) {
+  const [aiData, setAiData] = useState<AIGeneratedData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const company = extractCompany(alumni.title);
   const industry = extractIndustry(alumni.title);
+
+  const generateAIInsights = async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const prompt = `Analyze this professional profile and provide personalized insights:
+
+Name: ${alumni.name}
+Current Title: ${alumni.title}
+Company: ${company || 'Unknown'}
+Industry: ${industry || 'Unknown'}
+LinkedIn: ${alumni.linkedinUrl}
+
+Please provide the following information in JSON format:
+{
+  "currentTitle": "Extract or infer current title (e.g., CEO, Director)",
+  "industry": "Identify the industry they work in",
+  "overachieverScore": "Rate 1-10 based on their profile achievements",
+  "overachieverReason": "Specific reason for the score, be direct",
+  "predictedIncome": "Estimate income range (add * for estimates)",
+  "seniorityScore": "Rate 1-10 seniority level, 10 being highest",
+  "introScript": "Professional DM intro: 'Hi, I'm from the Asia School of Business Alumni team, wanted to reach out to you since you're {personalize based on their profile}'",
+  "personalizedJoke": "A light, professional joke related to their industry/role to start conversation"
+}
+
+Make reasonable estimates where data is limited and add * for guesses.`;
+
+      const response = await fetch('/api/generate-ai-insights', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate AI insights');
+      }
+
+      const data = await response.json();
+      setAiData(JSON.parse(data.insights));
+    } catch (err) {
+      console.error('Error generating AI insights:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate insights');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    generateAIInsights();
+  }, [alumni]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -104,36 +173,132 @@ export default function AlumniDetailsPage({ alumni, onBack, extractCompany, extr
         </CardHeader>
       </Card>
 
-      {/* Contact & LinkedIn Section */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-            <ExternalLink className="h-5 w-5" />
-            Professional Links
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-              <div className="h-10 w-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <ExternalLink className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-slate-900">LinkedIn Profile</p>
-                <p className="text-sm text-slate-600">Connect and view full professional profile</p>
-              </div>
-              <Button 
-                variant="outline"
-                onClick={() => window.open(alumni.linkedinUrl, '_blank')}
-                className="flex items-center gap-2"
-              >
-                Visit Profile
-                <ExternalLink className="h-4 w-4" />
-              </Button>
+      {/* AI Insights Loading */}
+      {isLoading && (
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-slate-600">Generating AI insights...</span>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Insights Error */}
+      {error && (
+        <Alert className="mb-8">
+          <AlertDescription>
+            {error}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={generateAIInsights} 
+              className="ml-4"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* AI-Generated Insights */}
+      {aiData && (
+        <>
+          {/* Professional Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <Star className="h-5 w-5 text-yellow-500" />
+                  Overachiever Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-yellow-600 mb-2">
+                  {aiData.overachieverScore}/10
+                </div>
+                <p className="text-sm text-slate-600">{aiData.overachieverReason}</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-green-500" />
+                  Predicted Income
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600 mb-2">
+                  {aiData.predictedIncome}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  <Brain className="h-5 w-5 text-purple-500" />
+                  Seniority Level
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-purple-600 mb-2">
+                  {aiData.seniorityScore}/10
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Engagement Tools */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                  <MessageCircle className="h-5 w-5 text-blue-500" />
+                  Intro Script
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-slate-700 italic">"{aiData.introScript}"</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => navigator.clipboard.writeText(aiData.introScript)}
+                >
+                  Copy Script
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                  <Smile className="h-5 w-5 text-orange-500" />
+                  Ice Breaker Joke
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <p className="text-slate-700 italic">"{aiData.personalizedJoke}"</p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-3"
+                  onClick={() => navigator.clipboard.writeText(aiData.personalizedJoke)}
+                >
+                  Copy Joke
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </>
+      )}
 
       {/* Professional Summary */}
       <Card className="mb-8">
@@ -148,27 +313,31 @@ export default function AlumniDetailsPage({ alumni, onBack, extractCompany, extr
             <div>
               <h3 className="font-medium text-slate-900 mb-2">Current Position</h3>
               <p className="text-slate-600 bg-slate-50 p-4 rounded-lg">
-                {alumni.title || 'No current position information available'}
+                {aiData?.currentTitle || alumni.title || 'No current position information available'}
               </p>
             </div>
             
-            {company && (
-              <div>
-                <h3 className="font-medium text-slate-900 mb-2">Company</h3>
-                <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-4 rounded-lg">
-                  <Building2 className="h-4 w-4" />
-                  {company}
-                </div>
-              </div>
-            )}
-            
-            {industry && (
-              <div>
-                <h3 className="font-medium text-slate-900 mb-2">Industry</h3>
-                <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-4 rounded-lg">
-                  <GraduationCap className="h-4 w-4" />
-                  {industry}
-                </div>
+            {(company || aiData?.industry) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {company && (
+                  <div>
+                    <h3 className="font-medium text-slate-900 mb-2">Company</h3>
+                    <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-4 rounded-lg">
+                      <Building2 className="h-4 w-4" />
+                      {company}
+                    </div>
+                  </div>
+                )}
+                
+                {aiData?.industry && (
+                  <div>
+                    <h3 className="font-medium text-slate-900 mb-2">Industry</h3>
+                    <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-4 rounded-lg">
+                      <GraduationCap className="h-4 w-4" />
+                      {aiData.industry}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
