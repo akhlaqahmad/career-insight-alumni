@@ -58,7 +58,8 @@ async function parseAlumniHtml() {
         { id: 'linkedinUrl', title: 'LinkedIn URL' },
         { id: 'imageUrl', title: 'Image URL' },
         { id: 'degree', title: 'Connection' }
-      ]
+      ],
+      alwaysQuote: true // ✅ This ensures all fields are wrapped in double quotes
     });
 
     await csvWriter.writeRecords(alumniProfiles);
