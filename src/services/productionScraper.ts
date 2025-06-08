@@ -127,7 +127,13 @@ export class ProductionScraper {
       return [];
     }
 
-    return data || [];
+    // Transform the data to ensure proper types
+    return (data || []).map(profile => ({
+      ...profile,
+      experience: Array.isArray(profile.experience) ? profile.experience : [],
+      education: Array.isArray(profile.education) ? profile.education : [],
+      skills: Array.isArray(profile.skills) ? profile.skills : []
+    }));
   }
 
   async searchAlumniProfiles(query: string): Promise<AlumniProfile[]> {
@@ -143,7 +149,13 @@ export class ProductionScraper {
       return [];
     }
 
-    return data || [];
+    // Transform the data to ensure proper types
+    return (data || []).map(profile => ({
+      ...profile,
+      experience: Array.isArray(profile.experience) ? profile.experience : [],
+      education: Array.isArray(profile.education) ? profile.education : [],
+      skills: Array.isArray(profile.skills) ? profile.skills : []
+    }));
   }
 
   // Real-time subscription for job progress
@@ -179,7 +191,13 @@ export class ProductionScraper {
         },
         (payload) => {
           console.log('New profile scraped:', payload);
-          callback(payload.new as AlumniProfile);
+          const profile = payload.new as any;
+          callback({
+            ...profile,
+            experience: Array.isArray(profile.experience) ? profile.experience : [],
+            education: Array.isArray(profile.education) ? profile.education : [],
+            skills: Array.isArray(profile.skills) ? profile.skills : []
+          });
         }
       )
       .subscribe();

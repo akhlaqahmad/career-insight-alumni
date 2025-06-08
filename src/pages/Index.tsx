@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,15 +12,15 @@ import { ExportButtons } from '@/components/ExportButtons';
 import { FilterControls } from '@/components/FilterControls';
 import { ProgressIndicator } from '@/components/ProgressIndicator';
 import { parseCSV } from '@/utils/csvParser';
-import { productionScraper } from '@/services/productionScraper';
+import { productionScraper, AlumniProfile as AlumniProfileType } from '@/services/productionScraper';
 import { useAlumniProfiles } from '@/hooks/useAlumniProfiles';
 import { useScrapingJob } from '@/hooks/useScrapingJob';
 import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
   const { profiles, loading, searchProfiles } = useAlumniProfiles();
-  const [filteredData, setFilteredData] = useState(profiles);
-  const [selectedAlumni, setSelectedAlumni] = useState(null);
+  const [filteredData, setFilteredData] = useState<AlumniProfileType[]>(profiles);
+  const [selectedAlumni, setSelectedAlumni] = useState<AlumniProfileType | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const { job: currentJob } = useScrapingJob(currentJobId);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,7 +31,7 @@ const Index = () => {
   });
 
   // Update filtered data when profiles change
-  useState(() => {
+  useEffect(() => {
     setFilteredData(profiles);
   }, [profiles]);
 

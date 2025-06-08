@@ -4,7 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY')
 
 interface ScrapingRequest {
   jobId: string
@@ -52,10 +52,10 @@ Deno.serve(async (req) => {
         // Simulate real scraping (replace with actual Puppeteer implementation)
         const profile = await scrapeLinkedInProfile(linkedinUrl)
         
-        // Generate AI summary if OpenAI is configured
+        // Generate AI summary using Gemini if configured
         let aiSummary = ''
-        if (openaiApiKey && profile) {
-          aiSummary = await generateAISummary(profile)
+        if (geminiApiKey && profile) {
+          aiSummary = await generateGeminiSummary(profile)
         }
         
         // Save to alumni_profiles table
@@ -230,9 +230,9 @@ async function scrapeLinkedInProfile(url: string): Promise<LinkedInProfile> {
   return profile
 }
 
-async function generateAISummary(profile: LinkedInProfile): Promise<string> {
-  if (!openaiApiKey) {
-    return "AI summary unavailable - OpenAI API key not configured"
+async function generateGeminiSummary(profile: LinkedInProfile): Promise<string> {
+  if (!geminiApiKey) {
+    return "AI summary unavailable - Gemini API key not configured"
   }
 
   try {
@@ -255,39 +255,40 @@ async function generateAISummary(profile: LinkedInProfile): Promise<string> {
     Provide a 2-3 sentence professional summary highlighting key strengths, career progression, and potential value to organizations.
     `
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional career analyst. Create concise, insightful summaries of LinkedIn profiles.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 200,
-        temperature: 0.7
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 200,
+        }
       })
     })
 
     if (!response.ok) {
-      console.error('OpenAI API error:', response.status)
+      console.error('Gemini API error:', response.status, await response.text())
       return "AI summary generation failed"
     }
 
     const data = await response.json()
-    return data.choices[0].message.content.trim()
+    
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      return data.candidates[0].content.parts[0].text.trim()
+    } else {
+      console.error('Unexpected Gemini response format:', data)
+      return "AI summary generation failed"
+    }
 
   } catch (error) {
-    console.error('Error generating AI summary:', error)
+    console.error('Error generating Gemini summary:', error)
     return "AI summary generation failed"
   }
 }
